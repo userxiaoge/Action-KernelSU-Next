@@ -101,7 +101,7 @@ jobs:
          cd KernelSU
          KSU_VERSION=$(expr $(/usr/bin/git rev-list --count HEAD) "+" 10200)
          echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
-         sed -i "29s/ccflags-y += -DKSU_VERSION=11998/ccflags-y += -DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
+         sed -i "32s/ccflags-y += -DKSU_VERSION=16/ccflags-y += -DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
          
       - name: Set up susfs
         if: github.event.inputs.SUSFS_ENABLED == 'true'
