@@ -115,8 +115,8 @@ jobs:
            cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
 
            # Apply patches
-           cd SukiSU_patch
-           cp ./hooks/* ./
+           cd KernelSU
+           cp ../../SukiSU_patch/hooks/* ./
            patch -p1 < ksu_hooks.patch || true
            patch -p1 < new_hooks.patch || true
            patch -p1 < syscall_hooks.patch || true
