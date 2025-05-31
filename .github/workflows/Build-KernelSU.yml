@@ -114,7 +114,8 @@ jobs:
 
            # Apply patches
            cd KernelSU
-           cp ../../kernel_patches/wild/* ./
+           cp ../../kernel_patches/mksu/fix.patch ./
+           cp ../../kernel_patches/mksu/mksu_susfs.patch ./
            patch -p1 < fix.patch || true
            patch -p1 < mksu_susfs.patch || true
            cd ../common
