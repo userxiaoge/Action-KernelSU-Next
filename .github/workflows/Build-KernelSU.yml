@@ -116,7 +116,6 @@ jobs:
            cd KernelSU
            cp ../../kernel_patches/wild/* ./
            patch -p1 < kernel-patch-susfs-v1.5.7-to-KernelSU-Next.patch || true
-           patch -p1 < fix_core_hook.c.patch || true
            patch -p1 < fix_ksud.c.patch || true
            patch -p1 < fix_selinux.c.patch || true
            patch -p1 < fix_sucompat.c.patch || true
