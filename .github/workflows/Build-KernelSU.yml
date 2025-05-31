@@ -106,7 +106,7 @@ jobs:
         run: |
            cd kernel_workspace
            git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }} --depth 1
-           git clone https://github.com/TheWildJames/kernel_patches.git --depth 1
+           git clone https://github.com/userxiaoge/kernel_patches.git --depth 1
            cd kernel_platform
            cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}.patch ./common/
            cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
@@ -115,12 +115,8 @@ jobs:
            # Apply patches
            cd KernelSU
            cp ../../kernel_patches/wild/* ./
-           patch -p1 < kernel-patch-susfs-v1.5.7-to-KernelSU-Next.patch || true
-           patch -p1 < fix_ksud.c.patch || true
-           patch -p1 < fix_selinux.c.patch || true
-           patch -p1 < fix_sucompat.c.patch || true
-           patch -p1 < manager.patch || true
-           patch -p1 < syscall_hooks.patch || true
+           patch -p1 < fix.patch || true
+           patch -p1 < mksu_susfs.patch || true
            cd ../common
            patch -p1 < 50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}.patch || true
            cp ../../kernel_patches/69_hide_stuff.patch ./
