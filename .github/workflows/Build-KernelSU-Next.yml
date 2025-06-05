@@ -5,11 +5,11 @@ on:
       CPU:
         description: "分支"
         required: true
-        default: 'sm7675'
+        default: 'sm8650'
       FEIL:
         description: "配置文件"
         required: true
-        default: 'oneplus_ace_3v_v'
+        default: 'oneplus12_v'
       CPUD:
         description: "处理器代号"
         required: true
@@ -23,18 +23,28 @@ on:
         required: true
         default: '6.1'
       KSUNEXT_ENABLED:
-        description: "添加 KSU Next"
+        description: "添加 KSU NEXT"
         required: true
         type: boolean
-        default: false
+        default: true
       SUSFS_ENABLED:
         description: "添加 SUSFS"
         required: true
         type: boolean
-        default: false
+        default: true
+      KERNEL_TIME:
+       description: "内核构建日期更改(默认为原厂)"
+       required: true
+       default: 'Tue Dec 17 23:36:49 UTC 2024'
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+        CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
+        CCACHE_NOHASHDIR: "true"
+        CCACHE_HARDLINK: "true"
+        CCACHE_DIR: /home/runner/.ccache  
+        CCACHE_MAXSIZE: 8G
     
     steps:
       - name: Maximize build space
@@ -54,6 +64,9 @@ jobs:
 
       - name: Install dependencies
         run: |
+         sudo apt-get update
+         sudo apt-get install lld
+         sudo apt-get install llvm
          sudo apt update && sudo apt upgrade -y
          sudo apt install -y python3 git curl
 
@@ -73,59 +86,76 @@ jobs:
          sed -i 's/ -dirty//g' kernel_platform/common/scripts/setlocalversion
          sed -i 's/ -dirty//g' kernel_platform/msm-kernel/scripts/setlocalversion
 
-      - name: Set up KernelSU Next
+      - name: Run sed and perl Commands
+        run: |
+          echo "Changing to configuration directory: $CONFIG..."
+          cd "kernel_workspace/kernel_platform"
+          
+          echo "Running sed commands..."
+          
+          # Run sed commands for modifications
+          sed -i 's/check_defconfig//' ./common/build.config.gki
+          sed -i 's/-dirty//' ./common/scripts/setlocalversion
+          sed -i 's/-dirty//' ./msm-kernel/scripts/setlocalversion
+          sed -i '$s|echo "\$res"|echo "\-android14-11-o-g1132d864665d"|' ./common/scripts/setlocalversion
+          sed -i '$s|echo "\$res"|echo "\-android14-11-o-g1132d864665d"|' ./msm-kernel/scripts/setlocalversion
+          sed -i "/stable_scmversion_cmd/s/-maybe//g" ./build/kernel/kleaf/impl/stamp.bzl
+          
+         
+          # Run perl command to modify UTS_VERSION
+          perl -pi -e 's{UTS_VERSION="\$\(echo \$UTS_VERSION \$CONFIG_FLAGS \$TIMESTAMP \| cut -b -\$UTS_LEN\)"}{UTS_VERSION="#1 SMP PREEMPT Sat Apr 20 04:20:00 UTC 2024"}' ./common/scripts/mkcompile_h
+
+      - name: Set up KernelSU  Next
         if: github.event.inputs.KSUNEXT_ENABLED == 'true'
         run: |
          cd kernel_workspace/kernel_platform
-         curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh" | bash -s next
+         curl -L "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh" | bash -s v1.0.7
          cd KernelSU-Next
          KSU_VERSION=$(expr $(/usr/bin/git rev-list --count HEAD) "+" 10200)
          echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
-         sed -i "s/DKSU_VERSION=16/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
-        
+         sed -i "29s/ccflags-y += -DKSU_VERSION=11998/ccflags-y += -DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
+         
       - name: Set up susfs
         if: github.event.inputs.SUSFS_ENABLED == 'true'
         run: |
            cd kernel_workspace
            git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}
-           git clone https://github.com/TheWildJames/kernel_patches.git
+           git clone https://github.com/WildKernels/kernel_patches.git
            cd kernel_platform
-           cp ../susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./KernelSU-Next/
            cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}.patch ./common/
            cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
            cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
 
            # Apply patches
-           cd ./KernelSU-Next
-           patch -p1 --forward < 10_enable_susfs_for_ksu.patch || true
+           cd KernelSU-Next
+           cp ../../kernel_patches/wild/* ./
+           patch -p1 < kernel-patch-susfs-v1.5.7-to-KernelSU-Next.patch || true
+           patch -p1 < fix_core_hook.c.patch || true
+           patch -p1 < fix_ksud.c.patch || true
+           patch -p1 < fix_selinux.c.patch || true
+           patch -p1 < fix_sucompat.c.patch || true
+           patch -p1 < manager.patch || true
+           patch -p1 < syscall_hooks.patch || true
            cd ../common
            patch -p1 < 50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}.patch || true
            cp ../../kernel_patches/69_hide_stuff.patch ./
            patch -p1 -F 3 < 69_hide_stuff.patch
-           git add -A && git commit -a -m "BUILD Kernel"
-           cd ..
-           cd ./msm-kernel && git add -A && git commit -a -m "BUILD Kernel"
-           cd ..
-             
-           cp ../kernel_patches/apk_sign.c_fix.patch ./
-           patch -p1 -F 3 < apk_sign.c_fix.patch
-             
-           cp ../kernel_patches/core_hook.c_fix.patch ./
-           patch -p1 --fuzz=3 < ./core_hook.c_fix.patch
-           
-           cp ../kernel_patches/selinux.c_fix.patch ./
-           patch -p1 -F 3 < selinux.c_fix.patch
            
       - name: Build kernel
         run: |
-         cd kernel_workspace
-         ./kernel_platform/oplus/build/oplus_build_kernel.sh ${{ github.event.inputs.CPUD }} gki
+          export KBUILD_BUILD_TIMESTAMP="${{ github.event.inputs.KERNEL_TIME }}"
+          export PATH="$GITHUB_WORKSPACE/kernel_workspace/kernel_platform/prebuilts/clang/host/linux-x86/clang-r510928/bin:$PATH"
+          export PATH="/usr/lib/ccache:$PATH"
+          sudo apt install libelf-dev
+          cd kernel_workspace/kernel_platform/common
+          make -j$(nproc --all) LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC=clang RUSTC=../../prebuilts/rust/linux-x86/1.73.0b/bin/rustc PAHOLE=../../prebuilts/kernel-build-tools/linux-x86/bin/pahole LD=ld.lld  HOSTLD=ld.lld O=out KCFLAGS+=-O2 gki_defconfig all
+         
          
       - name: Make AnyKernel3
         run: |
          git clone https://github.com/Kernel-SU/AnyKernel3 --depth=1
          rm -rf ./AnyKernel3/.git
-         cp kernel_workspace/kernel_platform/out/msm-kernel-${{ github.event.inputs.CPUD }}-gki/dist/Image ./AnyKernel3/
+         cp kernel_workspace/kernel_platform/common/out/arch/arm64/boot/Image ./AnyKernel3/
 
       - name: Upload AnyKernel3
         uses: actions/upload-artifact@v4
@@ -137,4 +167,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
          name: Image_KernelSU_Next_${{ env.KSUVER }}_${{ github.event.inputs.FEIL }}
-         path: kernel_workspace/kernel_platform/out/msm-kernel-${{ github.event.inputs.CPUD }}-gki/dist/Image
+         path: kernel_workspace/kernel_platform/common/out/arch/arm64/boot/Image
