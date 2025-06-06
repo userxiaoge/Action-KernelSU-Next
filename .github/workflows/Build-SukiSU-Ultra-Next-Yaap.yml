@@ -36,7 +36,16 @@ on:
       KERNEL_TIME:
        description: "内核构建日期更改(默认为原厂)"
        required: true
-       default: 'Tue Dec 17 23:36:49 UTC 2024'
+       default: 'Tue Dec 17 23:36:49 UTC 2025'
+      scx_enable:
+        description: '是否安装风驰内核驱动'
+        required: true
+        type: choice
+        default: 'true'
+        options:
+          - 'true'
+          - 'false'
+    
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -154,9 +163,19 @@ jobs:
           echo "CONFIG_KPM=y" >> ./common/arch/arm64/configs/gki_defconfig
 
         
-      - name: Build kernel
+      - name: 添加风驰驱动
         run: |
-         export KBUILD_BUILD_TIMESTAMP="${{ github.event.inputs.KERNEL_TIME }}"
+          cd kernel_workspace
+          if [[ ${{ github.event.inputs.scx_enable }} == "true" ]]; then
+          git clone https://github.com/cctv18/sched_ext.git
+          rm -rf ./sched_ext/.git
+          rm -rf ./sched_ext/README.md
+          cp -r ./sched_ext/* ./common/kernel/sched
+
+          
+      - name: 构建内核
+        run: |
+          export KBUILD_BUILD_TIMESTAMP="${{ github.event.inputs.KERNEL_TIME }}"
           export PATH="$GITHUB_WORKSPACE/kernel_workspace/kernel_platform/prebuilts/clang/host/linux-x86/clang-r510928/bin:$PATH"
           export PATH="/usr/lib/ccache:$PATH"
           sudo apt install libelf-dev
