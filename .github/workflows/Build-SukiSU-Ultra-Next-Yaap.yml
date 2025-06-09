@@ -164,7 +164,7 @@ jobs:
 
       - name: 应用 lz4k 补丁
         run: |
-            cd kernel_workspace/common
+            cd kernel_workspace/kernel_platform/common
             cp -r ../SukiSU_patch/other/zram/lz4k/include/linux/* ./include/linux/
             cp -r ../SukiSU_patch/other/zram/lz4k/lib/* ./lib
             cp -r ../SukiSU_patch/other/zram/lz4k/crypto/* ./crypto
