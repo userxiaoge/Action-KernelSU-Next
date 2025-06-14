@@ -157,7 +157,7 @@ jobs:
         if: github.event.inputs.scx_enable == 'true'
         run: |
           cd kernel_workspace/kernel_platform
-          git clone https://github.com/cctv18/sched_ext.git
+          git clone https://github.com/HanKuCha/sched_ext.git
           rm -rf ./sched_ext/.git
           rm -rf ./sched_ext/README.md
           cp -r ./sched_ext/* ./common/kernel/sched
