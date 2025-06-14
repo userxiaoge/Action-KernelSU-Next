@@ -114,7 +114,7 @@ jobs:
         if: github.event.inputs.KSUNEXT_ENABLED == 'true'
         run: |
          cd kernel_workspace/kernel_platform
-         curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s main
+         curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-1.5.8
          cd KernelSU
          KSU_VERSION=$(expr $(/usr/bin/git rev-list --count HEAD) "+" 10200)
          echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
@@ -166,7 +166,6 @@ jobs:
         run: |
           cd kernel_workspace
           echo "CONFIG_KSU=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KPM=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_MANUAL_HOOK=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS=y" >> ./common/arch/arm64/configs/gki_defconfig
