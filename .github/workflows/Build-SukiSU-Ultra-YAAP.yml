@@ -90,101 +90,35 @@ jobs:
         run: |
          mkdir kernel_workspace && cd kernel_workspace
          git clone https://github.com/yaap/kernel_oneplus_sm8650.git -b fifteen
-         repo init -u https://github.com/RealJohnGalt/opsm8650_kernel_manifest.git -b refs/heads/${{ github.event.inputs.CPU }} -m ${{ github.event.inputs.FEIL }}.xml --depth=1
-         repo sync
-         rm -r kernel_platform/common
-         mv kernel_oneplus_sm8650 kernel_platform/common
-         rm kernel_platform/common/android/abi_gki_protected_exports_* || echo "No protected exports!"
-         rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* || echo "No protected exports!"
-         sed -i 's/ -dirty//g' kernel_platform/common/scripts/setlocalversion
-         sed -i 's/ -dirty//g' kernel_platform/msm-kernel/scripts/setlocalversion
+         
 
-      - name: Run sed and perl Commands
-        run: |
-          echo "Changing to configuration directory: $CONFIG..."
-          cd "kernel_workspace/kernel_platform"
-          
-          echo "Running sed commands..."
-          
-          # Run sed commands for modifications
-          sed -i 's/check_defconfig//' ./common/build.config.gki
-          sed -i 's/-dirty//' ./common/scripts/setlocalversion
-          sed -i 's/-dirty//' ./msm-kernel/scripts/setlocalversion
-          sed -i '$s|echo "\$res"|echo "\-android14-11-o-g1132d864665d"|' ./common/scripts/setlocalversion
-          sed -i '$s|echo "\$res"|echo "\-android14-11-o-g1132d864665d"|' ./msm-kernel/scripts/setlocalversion
-          sed -i "/stable_scmversion_cmd/s/-maybe//g" ./build/kernel/kleaf/impl/stamp.bzl
+     
           
          
-          # Run perl command to modify UTS_VERSION
-          perl -pi -e 's{UTS_VERSION="\$\(echo \$UTS_VERSION \$CONFIG_FLAGS \$TIMESTAMP \| cut -b -\$UTS_LEN\)"}{UTS_VERSION="#1 SMP PREEMPT Sat Apr 20 04:20:00 UTC 2024"}' ./common/scripts/mkcompile_h
-
-      - name: Set up SukiSU-Ultra
-        if: github.event.inputs.KSUNEXT_ENABLED == 'true'
-        run: |
-         cd kernel_workspace/kernel_platform
-         curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-1.5.8
-         cd KernelSU
-         KSU_VERSION=$(expr $(/usr/bin/git rev-list --count HEAD) "+" 10200)
-         echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
-         sed -i "32s/ccflags-y += -DKSU_VERSION=16/ccflags-y += -DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
          
-      - name: Set up susfs
-        if: github.event.inputs.SUSFS_ENABLED == 'true'
-        run: |
-           cd kernel_workspace
-           git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}
-           git clone https://github.com/SukiSU-Ultra/SukiSU_patch.git
-           cd kernel_platform
-           cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}.patch ./common/
-           cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
-           cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
+    
            
-           # Apply patches
-           cd KernelSU
-           cp ../../SukiSU_patch/hooks/* ./
-           patch -p1 < ksu_hooks.patch || true
-           patch -p1 < new_hooks.patch || true
-           patch -p1 < syscall_hooks.patch || true
-           cd ../common
-           patch -p1 < 50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}.patch || true
-           cp ../../SukiSU_patch/69_hide_stuff.patch ./
-           patch -p1 -F 3 < 69_hide_stuff.patch
+      
 
-      - name: Add KPROBES 钩子
-        run: |
-          cd kernel_workspace/kernel_platform
-          echo "CONFIG_KPROBES=y" >> ./common/arch/arm64/configs/gki_defconfig
+    
 
-      - name: Add KPM 支持
-        run: |
-          cd kernel_workspace/kernel_platform
-          echo "CONFIG_KPM=y" >> ./common/arch/arm64/configs/gki_defconfig
+    
 
-      - name: 应用 lz4k 补丁
-        run: |
-            cd kernel_workspace/kernel_platform/common
-            ls
-            cp -r ../../SukiSU_patch/other/zram/lz4k/include/linux/* ./include/linux/
-            cp -r ../../SukiSU_patch/other/zram/lz4k/lib/* ./lib
-            cp -r ../../SukiSU_patch/other/zram/lz4k/crypto/* ./crypto
-            cp ../../SukiSU_patch/other/zram/zram_patch/6.1/lz4kd.patch ./
-            patch -p1 -F 3 < lz4kd.patch || true
+    
 
         
-      - name: 添加风驰驱动
-        if: github.event.inputs.scx_enable == 'true'
-        run: |
-          cd kernel_workspace/kernel_platform
-          git clone https://github.com/HanKuCha/sched_ext.git
-          rm -rf ./sched_ext/.git
-          rm -rf ./sched_ext/README.md
-          cp -r ./sched_ext/* ./common/kernel/sched
+  
 
           
       - name: 构建内核
         run: |
-          cd kernel_workspace
-          ./kernel_platform/oplus/build/oplus_build_kernel.sh ${CPUD} gki
+          export KBUILD_BUILD_TIMESTAMP="${{ github.event.inputs.KERNEL_TIME }}"
+          export PATH="$GITHUB_WORKSPACE/kernel_workspace/kernel_platform/prebuilts/clang/host/linux-x86/clang-r510928/bin:$PATH"
+          export PATH="/usr/lib/ccache:$PATH"
+          sudo apt install libelf-dev
+          cd kernel_workspace/kernel_platform/kernel_oneplus_sm8650
+          make -j$(nproc --all) LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC=clang RUSTC=../../prebuilts/rust/linux-x86/1.73.0b/bin/rustc PAHOLE=../../prebuilts/kernel-build-tools/linux-x86/bin/pahole LD=ld.lld  HOSTLD=ld.lld O=out KCFLAGS+=-O2 gki_defconfig all
+         
          
       - name: Apply Linux Patch
         run: |
