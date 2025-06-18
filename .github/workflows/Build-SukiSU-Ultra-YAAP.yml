@@ -90,7 +90,7 @@ jobs:
       - name: Initialize repo and sync
         run: |
          mkdir kernel_workspace && cd kernel_workspace
-         repo init -u https://github.com/yaap/kernel_platform_manifest_sm8650.git -b default
+         repo init -u https://github.com/yaap/kernel_platform_manifest_sm8650.git -b refs/heads/fifteen -m default.xml --depth=1
          repo sync 
          rm kernel_platform/common/android/abi_gki_protected_exports_* || echo "No protected exports!"
          rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* || echo "No protected exports!"
