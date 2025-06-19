@@ -90,7 +90,7 @@ jobs:
         run: |
          mkdir kernel_workspace && cd kernel_workspace
          repo init -u https://github.com/userxiaoge/kernel_platform_manifest_sm8650.git -b default
-         repo sync
+         repo sync --force-sync --no-clone-bundle --current-branch --no-tags -j$(nproc --all)
          rm kernel_platform/common/android/abi_gki_protected_exports_* || echo "No protected exports!"
          rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* || echo "No protected exports!"
          sed -i 's/ -dirty//g' kernel_platform/common/scripts/setlocalversion
