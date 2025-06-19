@@ -89,7 +89,7 @@ jobs:
       - name: Initialize repo and sync
         run: |
          mkdir kernel_workspace && cd kernel_workspace
-         git clone -u https://github.com/yaap/kernel_oneplus_sm8650.git -b fifteen
+         git clone https://github.com/yaap/kernel_oneplus_sm8650.git -b fifteen
         
          
 
