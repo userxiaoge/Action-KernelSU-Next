@@ -90,7 +90,8 @@ jobs:
         run: |
          mkdir kernel_workspace && cd kernel_workspace
          git clone https://github.com/yaap/kernel_oneplus_sm8650.git -b fifteen
-        
+         cd kernel_oneplus_sm8650
+         sed -i "433s/const char *name = section_name(shdr);//" arch/arm64/tools/gen-hyprel.c
          
 
           
