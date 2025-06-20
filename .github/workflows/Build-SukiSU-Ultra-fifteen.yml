@@ -1,1 +1,116 @@
 
+
+name: Build SukiSU-Ultra
+on:
+  workflow_dispatch:
+    inputs:
+      CPU:
+        description: "分支"
+        required: true
+        default: 'sm8650'
+      FEIL:
+        description: "配置文件"
+        required: true
+        default: 'oneplus12_v'
+      CPUD:
+        description: "处理器代号"
+        required: true
+        default: 'pineapple'
+      ANDROID_VERSION:
+        description: "内核安卓版本"
+        required: true
+        default: 'android14'
+      KERNEL_VERSION:
+        description: "内核版本"
+        required: true
+        default: '6.1'
+      KSUNEXT_ENABLED:
+        description: "添加 KSU NEXT"
+        required: true
+        type: boolean
+        default: true
+      SUSFS_ENABLED:
+        description: "添加 SUSFS"
+        required: true
+        type: boolean
+        default: true
+      scx_enable:
+        description: '是否安装风驰内核驱动'
+        required: true
+        type: choice
+        default: 'true'
+        options:
+          - 'true'
+          - 'false'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
+      CCACHE_NOHASHDIR: "true"
+      CCACHE_HARDLINK: "true"
+      CCACHE_DIR: /home/runner/.ccache  
+      CCACHE_MAXSIZE: 8G
+      
+    steps:
+      - name: Maximize build space
+        uses: easimon/maximize-build-space@master
+        with:
+          root-reserve-mb: 8192
+          temp-reserve-mb: 2048
+          remove-dotnet: 'true'
+          remove-android: 'true'
+          remove-haskell: 'true'
+          remove-codeql: 'true'
+          
+      - name: Configure Git
+        run: |
+         git config --global user.name "build"
+         git config --global user.email "3436378798@qq.com"
+
+      - name: Install dependencies
+        run: |
+         sudo apt-get update
+         sudo apt-get install lld
+         sudo apt-get install llvm
+         sudo apt update && sudo apt upgrade -y
+         sudo apt install -y python3 git curl
+
+      - name: Install repo tool
+        run: |
+         curl https://storage.googleapis.com/git-repo-downloads/repo > ~/repo
+         chmod a+x ~/repo
+         sudo mv ~/repo /usr/local/bin/repo
+
+      - name: Initialize repo and sync
+        run: |
+         mkdir kernel_workspace && cd kernel_workspace
+         git clone https://github.com/userxiaoge/kernel_oneplus_sm8650.git
+  
+      - name: Build kernel
+        run: |
+          export KBUILD_BUILD_TIMESTAMP="${{ github.event.inputs.KERNEL_TIME }}"
+          export PATH="$GITHUB_WORKSPACE/kernel_workspace/kernel_platform/prebuilts/clang/host/linux-x86/clang-r510928/bin:$PATH"
+          export PATH="/usr/lib/ccache:$PATH"
+          sudo apt install libelf-dev
+          cd kernel_workspace/kernel_oneplus_sm8650
+          make -j$(nproc --all) LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC=clang RUSTC=../../prebuilts/rust/linux-x86/1.73.0b/bin/rustc PAHOLE=../../prebuilts/kernel-build-tools/linux-x86/bin/pahole LD=ld.lld  HOSTLD=ld.lld O=out KCFLAGS+=-O2 gki_defconfig all
+         
+      - name: Make AnyKernel3
+        run: |
+         git clone https://github.com/Kernel-SU/AnyKernel3 --depth=1
+         rm -rf ./AnyKernel3/.git
+         cp kernel_workspace/kernel_platform/common/out/arch/arm64/boot/Image ./AnyKernel3/
+
+      - name: Upload AnyKernel3
+        uses: actions/upload-artifact@v4
+        with:
+         name: AnyKernel3_KernelSU_Next_${{ env.KSUVER }}_${{ github.event.inputs.FEIL }}
+         path: ./AnyKernel3/*
+         
+      - name: Upload Image
+        uses: actions/upload-artifact@v4
+        with:
+         name: Image_KernelSU_Next_${{ env.KSUVER }}_${{ github.event.inputs.FEIL }}
+         path: kernel_workspace/kernel_platform/common/out/arch/arm64/boot/Image
+
