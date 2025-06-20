@@ -1,6 +1,4 @@
-
-
-name: Build SukiSU-Ultra
+name: Build-SukiSU-Ultra-fifteen
 on:
   workflow_dispatch:
     inputs:
