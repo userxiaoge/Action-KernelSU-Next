@@ -1,4 +1,4 @@
-name: Build Yaap
+name: Build-Yaap
 on:
   workflow_dispatch:
     inputs:
