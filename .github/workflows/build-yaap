@@ -1,1 +1,122 @@
 
+name: Build SukiSU-Ultra Yaap
+on:
+  workflow_dispatch:
+    inputs:
+      CPU:
+        description: "分支"
+        required: true
+        default: 'kplatform'
+      FEIL:
+        description: "配置文件"
+        required: true
+        default: 'default'
+      CPUD:
+        description: "处理器代号"
+        required: true
+        default: 'pineapple'
+      ANDROID_VERSION:
+        description: "内核安卓版本"
+        required: true
+        default: 'android14'
+      KERNEL_VERSION:
+        description: "内核版本"
+        required: true
+        default: '6.1'
+      KSUNEXT_ENABLED:
+        description: "添加 KSU NEXT"
+        required: true
+        type: boolean
+        default: true
+      SUSFS_ENABLED:
+        description: "添加 SUSFS"
+        required: true
+        type: boolean
+        default: true
+      KERNEL_TIME:
+       description: "内核构建日期更改(默认为原厂)"
+       required: true
+       default: 'Tue Dec 17 23:36:49 UTC 2025'
+      scx_enable:
+        description: '是否安装风驰内核驱动'
+        required: true
+        type: choice
+        default: 'true'
+        options:
+          - 'true'
+          - 'false'
+    
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
+      CCACHE_NOHASHDIR: "true"
+      CCACHE_HARDLINK: "true"
+      CCACHE_DIR: /home/runner/.ccache  
+      CCACHE_MAXSIZE: 8G
+    
+    steps:
+      - name: Maximize build space
+        uses: easimon/maximize-build-space@master
+        with:
+          root-reserve-mb: 8192
+          temp-reserve-mb: 2048
+          remove-dotnet: 'true'
+          remove-android: 'true'
+          remove-haskell: 'true'
+          remove-codeql: 'true'
+          
+      - name: Configure Git
+        run: |
+         git config --global user.name "build"
+         git config --global user.email "3436378798@qq.com"
+
+      - name: Install dependencies
+        run: |
+         sudo apt-get update
+         sudo apt-get install lld
+         sudo apt-get install llvm
+         sudo apt update && sudo apt upgrade -y
+         sudo apt install -y python3 git curl
+
+      - name: Install repo tool
+        run: |
+         curl https://storage.googleapis.com/git-repo-downloads/repo > ~/repo
+         chmod a+x ~/repo
+         sudo mv ~/repo /usr/local/bin/repo
+
+      - name: Initialize repo and sync
+        run: |
+         mkdir kernel_workspace && cd kernel_workspace
+         repo init -u https://github.com/OnePlus-12-Development/android_kernel_manifest.git -b lineage-21
+         repo sync --force-sync --no-clone-bundle --current-branch --no-tags -j$(nproc --all)
+         
+          
+      - name: 构建内核
+        run: |
+          cd kernel_workspace
+          ls 
+          ./build.sh pineapple
+
+      - name: Apply Linux Patch
+        run: |
+         cd kernel_workspace/kernel_platform/common/out/arch/arm64/boot
+         curl -LO https://github.com/ShirkNeko/SukiSU_KernelPatch_patch/releases/download/0.11-beta/patch_linux
+         chmod +x patch_linux
+         ./patch_linux
+         rm -f Image
+         mv oImage Image
+         
+      - name: Make AnyKernel3
+        run: |
+         git clone https://github.com/Kernel-SU/AnyKernel3.git --depth=1      
+         rm -rf ./AnyKernel3/.git
+         rm -rf ./AnyKernel3/push.sh
+         cp kernel_workspace/kernel_platform/common/out/arch/arm64/boot/Image ./AnyKernel3/
+
+      - name: Upload AnyKernel3
+        uses: actions/upload-artifact@v4
+        with:
+         name: SuKiSu_${{ env.KSUVER }}_oneplus_12
+         path: ./AnyKernel3/*
