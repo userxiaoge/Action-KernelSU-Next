@@ -1,6 +1,6 @@
 
 
-name: Build SukiSU-Ultra Yaap
+name: Build-Yaap
 on:
   workflow_dispatch:
     inputs:
